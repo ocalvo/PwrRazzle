@@ -62,5 +62,5 @@ Export-ModuleMember -Alias Execute-Razzle
 Export-ModuleMember -Function Get-VSOAuth
 Export-ModuleMember -Function Unlock-MyBitLocker
 
-
+set-alias razzle Execute-Elevated -scope global
 
