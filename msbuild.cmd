@@ -1,1 +1,1 @@
-@powershell -c "C:\Users\ocalvo\Documents\WindowsPowerShell\Modules\Razzle\MSBuild-Alias.ps1;msb %*"
+@powershell -c "$env:HomeDrive$env:HomePath\Documents\WindowsPowerShell\Modules\PwrRazzle\MSBuild-Alias.ps1;msb %*"
