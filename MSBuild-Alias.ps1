@@ -15,8 +15,11 @@ function global:msb()
   ps msbuild* | where { $_.StartInfo.EnvironmentVariables['RepoRoot'] -eq $env:RepoRoot } | kill -force
   $global:lastBuildErrors = $null
   $date = [datetime]::Now
-  $dMarker = $date.ToString("yyMMdd-HHmmss.")
-  $logFileName = ("w:\build"+$dMarker+$env:_BuildType)
+
+  #$dMarker = $date.ToString("yyMMdd-HHmmss.")
+  #$logFileName = (".\build"+$dMarker+$env:_BuildType)
+  $logFileName = ("build"+$env:_BuildType) # If you change this, update Get-BuildErrors
+
   .$env:_msBuildPath "/bl:LogFile=$logFileName.binlog" /nologo /v:$env:_MSBUILD_VERBOSITY $env:_MSBUILD_EXTRAPARAMS /m $args "-flp2:LogFile=$logFileName.err;errorsonly" "-flp3:LogFile=$logFileName.wrn;warningsonly"
   $global:lastBuildErrors = Get-BuildErrors
   if ($null -ne $global:lastBuildErrors)
