@@ -1,6 +1,11 @@
 # PwrRazzle
 Setups Razzle environment for Windows Apps development
 
+# Setup ([via Powershell gallery](https://docs.microsoft.com/en-us/powershell/scripting/gallery/getting-started?view=powershell-7.1))
+```
+Install-module PwrRazzle -Scope CurrentUser
+```
+
 # Manual Setup
 
 1. Clone the repo into your Modules folder:
