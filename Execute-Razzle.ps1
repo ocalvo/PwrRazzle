@@ -7,7 +7,7 @@ param (
   $flavor="fre",
   $arch="x86",
   $device=$null,
-  $binaries = "c:\bin",
+  $binariesPrefix = "c:\bin",
   $vsVersion = "Enterprise",
   $ddDir = $env:LOCALAPPDATA,
   [switch]$symbolicLinks = $true,
@@ -139,7 +139,7 @@ function global:Get-RazzleProbes()
   throw "Enlistment not provided"
 }
 
-function Get-BranchName($razzleDirName)
+function __Get-BranchName($razzleDirName)
 {
   $branch = (git branch | where { $_.StartsWith("*") } | select -first 1 )
   if ($branch -ne $null)
@@ -203,21 +203,21 @@ function global:Retarget-Razzle
 {
     Write-Output ("Retargeting common paths")
 
-    New-RazzleLink "c:\Symbols" "c:\bin\Symbols"
-    New-RazzleLink "c:\Symcache" "c:\bin\Symbols"
-    New-RazzleLink "c:\Sym" "c:\bin\Symbols"
-    #New-RazzleLink $env:temp "c:\bin\Temp"
-    New-RazzleLink $env:HOMEDRIVE$env:HOMEPATH\.nuget c:\bin\NuGet
-    New-RazzleLink "c:\Temp" "c:\bin\Temp"
-    New-RazzleLink "c:\Logs" "c:\bin\Logs"
-    New-RazzleLink "c:\CrashDumps" "c:\bin\CrashDumps"
-    New-RazzleLink "c:\VHDs" "c:\bin\VHDs"
-    New-RazzleLink "c:\Debuggers" "c:\dd\Debuggers"
-    New-RazzleLink "c:\dd\Debuggers\Sym" "c:\bin\Symbols"
-    New-RazzleLink "c:\dd\Debuggers\Wow64\Sym" "c:\bin\Symbols"
-    New-RazzleLink "c:\ProgramData\dbg\Sym" "c:\bin\Symbols"
-    New-RazzleLink "c:\ProgramData\dbg\Src" "c:\bin\src"
-    New-RazzleLink "c:\Polaris" "c:\bin\Polaris"
+    New-RazzleLink "c:\Symbols" "$binariesPrefix\Symbols"
+    New-RazzleLink "c:\Symcache" "$binariesPrefix\Symbols"
+    New-RazzleLink "c:\Sym" "$binariesPrefix\Symbols"
+    #New-RazzleLink $env:temp "$binariesPrefix\Temp"
+    New-RazzleLink $env:HOMEDRIVE$env:HOMEPATH\.nuget "$binariesPrefix\NuGet"
+    New-RazzleLink "c:\Temp" "$binariesPrefix\Temp"
+    New-RazzleLink "c:\Logs" "$binariesPrefix\Logs"
+    New-RazzleLink "c:\CrashDumps" "$binariesPrefix\CrashDumps"
+    New-RazzleLink "c:\VHDs" "$binariesPrefix\VHDs"
+    New-RazzleLink "c:\Debuggers" "$binariesPrefix\Debuggers"
+    New-RazzleLink "c:\dd\Debuggers\Sym" "$binariesPrefix\Symbols"
+    New-RazzleLink "c:\dd\Debuggers\Wow64\Sym" "$binariesPrefix\Symbols"
+    New-RazzleLink "c:\ProgramData\dbg\Sym" "$binariesPrefix\Symbols"
+    New-RazzleLink "c:\ProgramData\dbg\Src" "$binariesPrefix\src"
+    New-RazzleLink "c:\Polaris" "$binariesPrefix\Polaris"
 
     Write-Output ("Retargeting done")
 }
@@ -234,7 +234,7 @@ function global:Retarget-OSRazzle($binariesRoot, $srcRoot = $env:OSBuildRoot)
     Write-Output "Branch binRoot is $binRoot"
     Pop-Location
 
-    New-RazzleLink "c:\bin\os" $binRoot
+    New-RazzleLink "$binariesPrefix\os" $binRoot
     New-RazzleLink ($srcRoot+"\bin") ($binRoot+"\bin")
     New-RazzleLink ($srcRoot+"\bldcache") ($binRoot+"\bldcache")
     New-RazzleLink ($srcRoot+"\bldout") ($binRoot+"\bldout")
@@ -281,11 +281,11 @@ function global:Retarget-OSRazzle($binariesRoot, $srcRoot = $env:OSBuildRoot)
 function global:Retarget-LiftedRazzle
 {
     $_srcName = Split-Path $enlistment -Leaf
-    $binRoot = ("c:\bin\"+$_srcName)
+    $binRoot = ($binariesPrefix+"\"+$_srcName)
     $srcRoot = ("c:\src\"+$_srcName)
     Write-Output "Branch binRoot is $binRoot, srcRoot is $srcRoot"
 
-    New-RazzleLink ($srcDir+"\packages") ("c:\bin\NuGet\packages")
+    New-RazzleLink ($srcDir+"\packages") ("$binariesPrefix\NuGet\packages")
     New-RazzleLink ($srcDir+"\buildOutput") ($binRoot)
     New-RazzleLink ($srcDir+"\TestPayload") ($binRoot+"\TestPayLoad")
     New-RazzleLink ($srcDir+"\bin") ($binRoot+"\bin")
@@ -308,6 +308,7 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
   Undo-Razzle
 
   $razzleProbe = (Get-RazzleProbes)
+  $binaries = $binariesPrefix
 
   foreach ($driveEnlistRoot in $razzleProbe)
   {
@@ -351,8 +352,7 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
             $env:RazzleOptions += " no_oacr "
           }
 
-          $binaries += $razzleDirName
-          $binaries = ("c:\bin\"+(Get-BranchName $razzleDirName))
+          $binaries = ($binariesPrefix+(__Get-BranchName $razzleDirName))
           $tempDir = ($binaries + "\temp")
 
           if ($noDeep.IsPresent)
@@ -436,19 +436,19 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
   throw "Razzle not found"
 }
 
-if (!(test-path "c:\bin\Symbols"))
+if (!(test-path "$binariesPrefix\Symbols"))
 {
-   mkdir c:\bin\Symbols
+   mkdir "$binariesPrefix\Symbols"
 }
 
-if (!(test-path "c:\bin\SymCache"))
+if (!(test-path "$binariesPrefix\SymCache"))
 {
-   mkdir c:\bin\SymCache
+   mkdir "$binariesPrefix\SymCache"
 }
 
-if (!(test-path "c:\bin\Temp"))
+if (!(test-path "$binariesPrefix\Temp"))
 {
-   mkdir c:\bin\Temp
+   mkdir "$binariesPrefix\Temp"
 }
 
 Execute-Razzle-Internal -flavor $flavor -arch $arch -enlistment $enlistment
