@@ -26,7 +26,8 @@ function global:msb()
   {
     Write-Warning "Build errors detected:`$lastBuildErrors"
   }
-  ps msbuild* | where { $_.StartInfo.EnvironmentVariables['RepoRoot'] -eq $env:RepoRoot } | kill -force
+  # Kill lingering msbuild proceses
+  # ps msbuild* | where { $_.StartInfo.EnvironmentVariables['RepoRoot'] -eq $env:RepoRoot } | kill -force
 }
 
 function global:build()

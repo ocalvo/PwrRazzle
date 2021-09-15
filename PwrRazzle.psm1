@@ -49,6 +49,15 @@ function global:Open-Editor($fileName,$lineNumber)
 }
 Export-ModuleMember -Function Open-Editor
 
+if ("Core" -eq $PSEdition) {
+  $env:__PSShell = "pwsh.exe"
+  $env:__PSShellDir = "PowerShell"
+}
+else {
+  $env:__PSShell = "powershell.exe"
+  $env:__PSShellDir = "WindowsPowerShell"
+}
+
 function global:Edit-BuildErrors($first=1,$skip=0)
 {
   Get-BuildErrors | Select-Object -First $first -Skip $skip |ForEach-Object { Open-Editor $_.Item1 $_.Item2 }
@@ -62,5 +71,5 @@ Export-ModuleMember -Alias Execute-Razzle
 Export-ModuleMember -Function Get-VSOAuth
 Export-ModuleMember -Function Unlock-MyBitLocker
 
-set-alias razzle Execute-Elevated -scope global
+set-alias razzle Execute-Razzle -scope global
 
