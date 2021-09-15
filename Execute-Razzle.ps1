@@ -385,7 +385,10 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
           [string]$extraArgs
           $args |ForEach-Object { $extraArgs += " " + $_ }
 
-          $extraArgs += " developer_dir ~\Documents\WindowsPowerShell\Razzle\ "
+          if (test-path ('~\Documents\'+$env:__PSShellDir+'\Razzle\'))
+          {
+            $extraArgs += (" developer_dir ~\Documents\"+$env:__PSShellDir+"\Razzle\ ")
+          }
 
           $env:_XROOT = $srcDir.Trim("\")
 
