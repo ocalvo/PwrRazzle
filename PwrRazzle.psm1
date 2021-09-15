@@ -1,6 +1,4 @@
 
-. ($PSScriptRoot+'\VSO-Helpers.ps1')
-
 set-alias Execute-Razzle ($PSScriptRoot+'\Execute-Razzle.ps1')            -scope global
 set-alias Enter-VSShell ($PSScriptRoot+'\Enter-VSShell.ps1')            -scope global
 set-alias Invoke-CmdScript ($PSScriptRoot+'\Invoke-CmdScript.ps1')      -scope global

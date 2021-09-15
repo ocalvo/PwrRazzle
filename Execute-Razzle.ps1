@@ -36,10 +36,6 @@ if ($null -eq $enlistment)
      throw "Enlistment parameter not specified"
   }
 }
-if (!(test-path $enlistment))
-{
-  sudo Unlock-MyBitlocker
-}
 
 if (test-path $enlistment)
 {
