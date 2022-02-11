@@ -5,7 +5,7 @@
 #
 param (
   $flavor="fre",
-  $arch="x86",
+  $arch="x64",
   $device=$null,
   $binariesPrefix = "c:\bin",
   $vsVersion = "Enterprise",
@@ -404,6 +404,7 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
           else {
             Retarget-OSRazzle $binaries (Get-item $depotRoot).Parent.FullName
             Write-Output ".$razzle $flavor $arch $env:RazzleOptions $extraArgs noprompt"
+            $arch = $arch.Replace("x64","amd64")
             .$razzle $flavor $arch $env:RazzleOptions $extraArgs noprompt
           }
 
