@@ -1,23 +1,19 @@
 param(
-  [Parameter(Mandatory=$false)][String]$vsVersion = "Preview",
-  [Parameter(Mandatory=$false)][String]$vsYear = "2019",
-  [Parameter(Mandatory=$false)][switch]$x64 = $false
+  [Parameter(Mandatory=$false)][String]$vsVersion = "Enterprise",
+  [Parameter(Mandatory=$false)][String]$vsYear = "2019"
 )
 
 $installPath = &"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -version 16.0 -prerelease -all -products * -property installationpath
 $vsVersions = $installPath |
   Select-Object @{Name='Version';Expression={Split-Path $_ -Leaf | Select-Object -First 1}},
-    @{Name='Year';Expression={Split-Path $_ | Split-Path -Leaf | Select-Object -Last 1}},
+    @{Name='Year';Expression={Split-Path (Split-Path $_) -Leaf | Select-Object -First 1}},
     @{Name='Path';Expression={$_}}
 
-$bitness = "*86*"
-if ($x64.IsPresent)
-{
-  $bitness = ""
-}
-$startPath = (get-item ("env:ProgramFiles"+$bitness)).Value
-$ver = $vsVersions | Where-Object {($_.Version -eq $vsVersion) -and ($_.Year -eq $vsYear) -and ($_.Path.StartsWith($startPath)) }
 Write-Host "Found the following versions:"
+Write-Host $vsVersions
+
+$ver = $vsVersions | Where-Object {($_.Version -eq $vsVersion) -and ($_.Year -eq $vsYear) } | Select-Object -First 1
+Write-Host "Match the following versions:"
 $ver |% {
   Write-Host ("  "+$_)
 }
