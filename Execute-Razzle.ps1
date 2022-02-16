@@ -12,7 +12,7 @@ param (
   $ddDir = $env:LOCALAPPDATA,
   [switch]$symbolicLinks = $true,
   [switch]$bl_ok,
-  [switch]$oacr,
+  [switch]$DevBuild,
   [switch]$opt,
   [switch]$noDeep,
   [switch]$nobtok,
@@ -343,9 +343,9 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
             $env:RazzleOptions += " no_opt "
           }
 
-          if ( !($oacr.IsPresent) )
+          if ( ($DevBuild.IsPresent) )
           {
-            $env:RazzleOptions += " no_oacr "
+            $env:RazzleOptions += " dev_build "
           }
 
           $binaries = ($binariesPrefix+(__Get-BranchName $razzleDirName))
