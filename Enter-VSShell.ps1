@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory=$false)][String]$vsVersion = "Enterprise",
-  [Parameter(Mandatory=$false)][String]$vsYear = "2019"
+  [Parameter(Mandatory=$false)][String]$vsYear = "2022"
 )
 
 $installPath = &"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -version 16.0 -prerelease -all -products * -property installationpath
