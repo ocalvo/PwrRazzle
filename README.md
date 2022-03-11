@@ -25,5 +25,5 @@ Import-Module PwrRazzle
 # Usage
 
 ```
-Execute-Razzle -arch x86 -flavor chk -vsVersion Enterprise -vsYear 2022 -Enlistment c:\xm1
+Execute-Razzle -arch x86 -flavor chk -vsVersion Enterprise -vsYear 2022 -Enlistment c:\xm1 -noSymbolicLinks
 ```

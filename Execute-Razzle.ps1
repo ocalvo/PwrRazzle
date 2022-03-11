@@ -10,7 +10,7 @@ param (
   $binariesPrefix = "c:\bin",
   $vsVersion = "Enterprise",
   $ddDir = $env:LOCALAPPDATA,
-  [switch]$symbolicLinks = $true,
+  [switch]$noSymbolicLinks,
   [switch]$bl_ok,
   [switch]$DevBuild,
   [switch]$opt,
@@ -24,6 +24,20 @@ param (
 ##
 
 $global:ddIni = ($ddDir+"\dd.ini")
+
+function Check-GSudo
+{
+  if ($null -eq (get-command gsudo -ErrorAction Ignore))
+  {
+    winget install gsudo
+    $env:path += ";C:\Program Files (x86)\gsudo\"
+  }
+}
+
+if (!($noSymbolicLinks.IsPresent))
+{
+  Check-GSudo
+}
 
 if ($null -eq $enlistment)
 {
@@ -151,7 +165,7 @@ function __Get-BranchName($razzleDirName)
 
 function global:New-RazzleLink($linkName, $binaries)
 {
-  if (!($symbolicLinks.IsPresent))
+  if ($noSymbolicLinks.IsPresent)
   {
      return;
   }
@@ -171,7 +185,7 @@ function global:New-RazzleLink($linkName, $binaries)
   if (($currentTarget -eq $null) -or ($currentTarget -ne $binaries))
   {
      echo "Making new link $linkName -> $binaries"
-     sudo New-Item $linkName -ItemType SymbolicLink -Target $binaries -Force
+     gsudo New-Item $linkName -ItemType SymbolicLink -Target $binaries -Force
   }
 }
 
@@ -262,7 +276,7 @@ function global:Retarget-OSRazzle($binariesRoot, $srcRoot = $env:OSBuildRoot)
       $workSpaceFile = "$workspaceFolder\$fileName.code-workspace"
       if (!(test-path $workSpaceFile))
       {
-        #sudo new-item -ItemType SymbolicLink $workSpaceFile -Target $realWorkspaceFile
+        #gsudo new-item -ItemType SymbolicLink $workSpaceFile -Target $realWorkspaceFile
       }
       $otherLinks = Get-ChildItem $workspaceFolder\*.code-workspace | Where-Object -Property LinkType -eq SymbolicLink | Where-Object -Property BaseName -ne $fileName
       if ($null -ne $otherLinks)
@@ -318,7 +332,8 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
       if ($depotRoot -like "*\os*\src")
       {
         Write-Host "gvfs mount $depotRoot..."
-        sudo Start-Service GVFS.Service
+        Check-GSudo
+        gsudo Start-Service GVFS.Service
         gvfs mount $depotRoot
       }
 
