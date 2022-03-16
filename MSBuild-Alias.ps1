@@ -12,7 +12,6 @@ $env:_MSBUILD_EXTRAPARAMS = "/p:NuGetInteractive=`"true`""
 
 function global:msb()
 {
-  ps msbuild* | where { $_.StartInfo.EnvironmentVariables['RepoRoot'] -eq $env:RepoRoot } | kill -force
   $global:lastBuildErrors = $null
   $date = [datetime]::Now
 
@@ -26,8 +25,6 @@ function global:msb()
   {
     Write-Warning "Build errors detected:`$lastBuildErrors"
   }
-  # Kill lingering msbuild proceses
-  # ps msbuild* | where { $_.StartInfo.EnvironmentVariables['RepoRoot'] -eq $env:RepoRoot } | kill -force
 }
 
 function global:build()
