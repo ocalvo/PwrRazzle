@@ -437,8 +437,11 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
             Set-Location $popDir
           }
 
-          $title = Get-WindowTitleSuffix
-          Write-Host ("Branch:"+$title) -ForegroundColor Yellow
+          if ($null -ne (get-command Get-WindowTitleSuffix*))
+          {
+            $title = Get-WindowTitleSuffix
+            Write-Host ("Branch:"+$title) -ForegroundColor Yellow
+          }
           return
         }
         Write-Output $razzle
