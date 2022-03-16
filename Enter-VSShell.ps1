@@ -8,6 +8,7 @@ if ($null -ne $devEnvCmd)
 {
    Write-Host "Already Under DevShell"
    .$PSScriptRoot\MSBuild-Alias.ps1
+   return;
 }
 
 $installPath = &"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -version 16.0 -prerelease -all -products * -property installationpath
