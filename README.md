@@ -11,11 +11,11 @@ Install-module PwrRazzle -Scope CurrentUser
 1. Clone the repo into your Modules folder:
   - For PowerShell core:
   ```
-  git clone https://github.com/ocalvo/PwrRazzle.git "$env:HomeDrive$env:HomePath\Documents\PowerShell\Modules\PwrSudo"
+  git clone https://github.com/ocalvo/PwrRazzle.git "$env:HomeDrive$env:HomePath\Documents\PowerShell\Modules\PwrRazzle"
   ```
   - For Windows Power Shell:
   ```
-  git clone https://github.com/ocalvo/PwrRazzle.git "$env:HomeDrive$env:HomePath\Documents\WindowsPowerShell\Modules\PwrSudo"
+  git clone https://github.com/ocalvo/PwrRazzle.git "$env:HomeDrive$env:HomePath\Documents\WindowsPowerShell\Modules\PwrRazzle"
   ```
 2. Edit your `$profile` file and add the following line:
 ```
@@ -25,5 +25,5 @@ Import-Module PwrRazzle
 # Usage
 
 ```
-Execute-Razzle -arch x86 -flavor chk -vsVersion Enterprise -vsYear 2022 -Enlistment c:\xm1 -noSymbolicLinks
+Execute-Razzle -arch x86 -flavor chk -vsVersion Enterprise -vsYear 2022 -noSymbolicLinks -Enlistment c:\xm1
 ```
