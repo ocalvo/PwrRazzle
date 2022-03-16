@@ -3,6 +3,13 @@ param(
   [Parameter(Mandatory=$false)][String]$vsYear = "2022"
 )
 
+$devEnvCmd = get-command devenv.exe*
+if ($null -ne $devEnvCmd)
+{
+   Write-Host "Already Under DevShell"
+   .$PSScriptRoot\MSBuild-Alias.ps1
+}
+
 $installPath = &"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -version 16.0 -prerelease -all -products * -property installationpath
 $vsVersions = $installPath |
   Select-Object @{Name='Version';Expression={Split-Path $_ -Leaf | Select-Object -First 1}},
