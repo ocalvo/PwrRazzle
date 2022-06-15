@@ -8,7 +8,7 @@ if ($null -eq $env:_msBuildPath)
 
 $env:_MSBUILD_VERBOSITY = "m"
 $env:_VSINSTALLDIR = Split-path ((Split-Path ($env:_msBuildPath) -Parent)+"\..\..\") -Resolve
-$env:_MSBUILD_EXTRAPARAMS = "/p:NuGetInteractive=`"true`""
+$env:_MSBUILD_EXTRAPARAMS = "/p:NuGetInteractive=true"
 
 function global:msb()
 {

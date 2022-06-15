@@ -9,6 +9,7 @@ param (
   $device=$null,
   $binariesPrefix = "c:\bin",
   $vsVersion = "Enterprise",
+  $vsYear = "2022",
   $ddDir = $env:LOCALAPPDATA,
   [switch]$noSymbolicLinks,
   [switch]$bl_ok,
@@ -409,7 +410,7 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
           elseif ( $kind -eq "Lifted" ) {
             Retarget-LiftedRazzle
             Push-Location $env:SDXROOT
-            Enter-VSShell -vsVersion $vsVersion
+            Enter-VSShell -vsVersion $vsVersion -vsYear $vsYear
             Write-Output ".$razzle $arch$flavor"
             $initParams = (($arch+$flavor),"/2019")
             $initParams = (($arch+$flavor))
