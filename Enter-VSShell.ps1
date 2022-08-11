@@ -43,5 +43,5 @@ $vsVerPath = $ver.Path
 Write-Host "Loading VS Shell from $vsVerPath"
 Enter-VsDevShell -VsInstallPath $vsVerPath -SkipAutomaticLocation
 
-.$PSScriptRoot\MSBuild-Alias.ps1
+Import-Module PwrDev
 
