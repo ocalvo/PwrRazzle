@@ -33,6 +33,7 @@ function Check-GSudo
     winget install gsudo
     $env:path += ";C:\Program Files (x86)\gsudo\"
   }
+  gsudo cache on -p 0
 }
 
 if (!($noSymbolicLinks.IsPresent))
