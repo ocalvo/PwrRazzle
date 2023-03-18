@@ -70,7 +70,7 @@ function global:Undo-Razzle
   Remove-Item env:*;
   foreach ($env_entry in $global:UnRazzleEnv)
   {
-    New-Item -Path env: -Name $env_entry.Name  -Value $env_entry.Value > $null 2> $null
+    New-Item -Path env: -Name $env_entry.Name  -Value $env_entry.Value -Force
   }
 }
 
@@ -79,7 +79,7 @@ function global:Redo-Razzle
   Remove-Item env:*;
   foreach ($env_entry in $global:RazzleEnv)
   {
-    New-Item -Path env: -Name $env_entry.Name  -Value $env_entry.Value > $null 2> $null
+    New-Item -Path env: -Name $env_entry.Name  -Value $env_entry.Value -Force
   }
 }
 
