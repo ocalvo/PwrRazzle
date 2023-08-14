@@ -26,6 +26,8 @@ param (
 
 $global:ddIni = ($ddDir+"\dd.ini")
 
+$env:MSBUILD_VERBOSITY="binlog"
+
 function Check-GSudo
 {
   if ($null -eq (get-command gsudo -ErrorAction Ignore))
