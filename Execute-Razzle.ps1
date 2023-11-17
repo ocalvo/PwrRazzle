@@ -11,7 +11,7 @@ param (
   $vsVersion = "Enterprise",
   $vsYear = "2022",
   $ddDir = $env:LOCALAPPDATA,
-  [switch]$noSymbolicLinks,
+  [switch]$noSymbolicLinks = $true,
   [switch]$bl_ok,
   [switch]$DevBuild,
   [switch]$opt,
@@ -26,7 +26,7 @@ param (
 
 $global:ddIni = ($ddDir+"\dd.ini")
 
-$env:MSBUILD_VERBOSITY="binlog"
+#$env:MSBUILD_VERBOSITY="binlog"
 
 function Check-GSudo
 {
@@ -101,6 +101,7 @@ function global:Execute-OutsideRazzle
 }
 
 Set-Alias UnRazzle Execute-OutsideRazzle -Scope Global;
+
 function Get-Batchfile ($file)
 {
   $cmd = "echo off & `"$file`" & set"
@@ -173,7 +174,7 @@ function global:New-RazzleLink($linkName, $binaries)
   {
      return;
   }
-  echo "Linking $linkName -> $binaries ..."
+  Write-Host "Linking $linkName -> $binaries ..."
 
   if (!(test-path $binaries))
   {
@@ -188,7 +189,7 @@ function global:New-RazzleLink($linkName, $binaries)
   }
   if (($currentTarget -eq $null) -or ($currentTarget -ne $binaries))
   {
-     echo "Making new link $linkName -> $binaries"
+     Write-Host "Making new link $linkName -> $binaries"
      gsudo New-Item $linkName -ItemType SymbolicLink -Target $binaries -Force
   }
 }
@@ -225,13 +226,8 @@ function global:Retarget-Razzle
     New-RazzleLink "c:\Temp" "$binariesPrefix\Temp"
     New-RazzleLink "c:\Logs" "$binariesPrefix\Logs"
     New-RazzleLink "c:\CrashDumps" "$binariesPrefix\CrashDumps"
-    New-RazzleLink "c:\VHDs" "$binariesPrefix\VHDs"
-    New-RazzleLink "c:\Debuggers" "$binariesPrefix\Debuggers"
-    New-RazzleLink "c:\dd\Debuggers\Sym" "$binariesPrefix\Symbols"
-    New-RazzleLink "c:\dd\Debuggers\Wow64\Sym" "$binariesPrefix\Symbols"
     New-RazzleLink "c:\ProgramData\dbg\Sym" "$binariesPrefix\Symbols"
     New-RazzleLink "c:\ProgramData\dbg\Src" "$binariesPrefix\src"
-    New-RazzleLink "c:\Polaris" "$binariesPrefix\Polaris"
 
     Write-Output ("Retargeting done")
 }
@@ -314,19 +310,17 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
   {
     Write-Host "Checking git version..."
     gvfs upgrade
-    #open-elevated -wait cmd /c '\\ntdev\sourcetools\release\Setup.cmd' -Canary
   }
 
   $popDir = Get-Location
 
-  Undo-Razzle
+  #Undo-Razzle
 
   $razzleProbe = (Get-RazzleProbes)
   $binaries = $binariesPrefix
 
   foreach ($driveEnlistRoot in $razzleProbe)
   {
-    echo $driveEnlistRoot
     if (test-path $driveEnlistRoot)
     {
       $razzleDirName = split-path $driveEnlistRoot -leaf
