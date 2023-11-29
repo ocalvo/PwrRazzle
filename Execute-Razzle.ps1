@@ -18,6 +18,7 @@ param (
   [switch]$noDeep,
   [switch]$nobtok,
   [switch]$gitVersionCheck,
+  [switch]$verbose,
   $enlistment = $env:SDXROOT)
 
 ##
@@ -174,11 +175,15 @@ function global:New-RazzleLink($linkName, $binaries)
   {
      return;
   }
-  Write-Host "Linking $linkName -> $binaries ..."
+  if ($verbose.IsPresent) {
+    Write-Host "Linking $linkName -> $binaries ..."
+  }
 
   if (!(test-path $binaries))
   {
-     echo "Making new dir $binaries"
+     if ($verbose.IsPresent) {
+       Write-Host "Making new dir $binaries"
+     }
      mkdir $binaries > $null
   }
 
@@ -189,7 +194,9 @@ function global:New-RazzleLink($linkName, $binaries)
   }
   if (($currentTarget -eq $null) -or ($currentTarget -ne $binaries))
   {
-     Write-Host "Making new link $linkName -> $binaries"
+     if ($verbose.IsPresent) {
+       Write-Host "Making new link $linkName -> $binaries"
+     }
      gsudo New-Item $linkName -ItemType SymbolicLink -Target $binaries -Force
   }
 }
@@ -216,7 +223,13 @@ function Remove-InvalidFileNameChars
 
 function global:Retarget-Razzle
 {
-    Write-Output ("Retargeting common paths")
+    if ($noSymbolicLinks.IsPresent) {
+      return;
+    }
+
+    if ($verbose.IsPresent) {
+      Write-Host ("Retargeting common paths")
+    }
 
     New-RazzleLink "c:\Symbols" "$binariesPrefix\Symbols"
     New-RazzleLink "c:\Symcache" "$binariesPrefix\Symbols"
@@ -229,19 +242,29 @@ function global:Retarget-Razzle
     New-RazzleLink "c:\ProgramData\dbg\Sym" "$binariesPrefix\Symbols"
     New-RazzleLink "c:\ProgramData\dbg\Src" "$binariesPrefix\src"
 
-    Write-Output ("Retargeting done")
+    if ($verbose.IsPresent) {
+      Write-Host ("Retargeting done")
+    }
 }
 
 function global:Retarget-OSRazzle($binariesRoot, $srcRoot = $env:OSBuildRoot)
 {
-    Write-Output ("Retargeting $srcRoot -> $binariesRoot")
+    if ($noSymbolicLinks.IsPresent) {
+      return;
+    }
+
+    if ($verbose.IsPresent) {
+      Write-Host ("Retargeting $srcRoot -> $binariesRoot")
+    }
 
     Push-Location ($srcRoot+"\src")
     $binRoot = $srcRoot.Replace("f:","w:")
     $binRoot = $binRoot.Replace("F:","w:")
     $binRoot = $binRoot.Replace("c:\src","w:")
     $binRoot = $binRoot.Replace("C:\src","w:")
-    Write-Output "Branch binRoot is $binRoot"
+    if ($verbose.IsPresent) {
+      Write-Host "Branch binRoot is $binRoot"
+    }
     Pop-Location
 
     New-RazzleLink "$binariesPrefix\os" $binRoot
@@ -285,15 +308,23 @@ function global:Retarget-OSRazzle($binariesRoot, $srcRoot = $env:OSBuildRoot)
       }
     }
 
-    Write-Output ("Retargeting done")
+    if ($verbose.IsPresent) {
+      Write-Host ("Retargeting done")
+    }
 }
 
 function global:Retarget-LiftedRazzle
 {
+    if ($noSymbolicLinks.IsPresent) {
+      return;
+    }
+
     $_srcName = Split-Path $enlistment -Leaf
     $binRoot = ($binariesPrefix+"\"+$_srcName)
     $srcRoot = ("c:\src\"+$_srcName)
-    Write-Output "Branch binRoot is $binRoot, srcRoot is $srcRoot"
+    if ($verbose.IsPresent) {
+      Write-Host "Branch binRoot is $binRoot, srcRoot is $srcRoot"
+    }
 
     New-RazzleLink ($srcDir+"\packages") ("$binariesPrefix\NuGet\packages")
     New-RazzleLink ($srcDir+"\buildOutput") ($binRoot)
@@ -308,7 +339,9 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
 {
   if ( ($gitVersionCheck.IsPresent) )
   {
-    Write-Host "Checking git version..."
+    if ($verbose.IsPresent) {
+      Write-Host "Checking git version..."
+    }
     gvfs upgrade
   }
 
@@ -325,11 +358,15 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
     {
       $razzleDirName = split-path $driveEnlistRoot -leaf
       $depotRoot = $driveEnlistRoot
-      Write-Host "Probing $depotRoot..."
+      if ($verbose.IsPresent) {
+        Write-Host "Probing $depotRoot..."
+      }
 
       if ($depotRoot -like "*\os*\src")
       {
-        Write-Host "gvfs mount $depotRoot..."
+        if ($verbose.IsPresent) {
+          Write-Host "gvfs mount $depotRoot..."
+        }
         Check-GSudo
         gsudo Start-Service GVFS.Service
         gvfs mount $depotRoot
@@ -408,7 +445,9 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
             Retarget-LiftedRazzle
             Push-Location $env:SDXROOT
             Enter-VSShell -vsVersion $vsVersion -vsYear $vsYear
-            Write-Output ".$razzle $arch$flavor"
+            if ($verbose.IsPresent) {
+              Write-Host ".$razzle $arch$flavor"
+            }
             $initParams = (($arch+$flavor),"/2019")
             $initParams = (($arch+$flavor))
             Invoke-CmdScript -script $razzle -parameters $initParams
@@ -416,8 +455,13 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
           }
           else {
             Retarget-OSRazzle $binaries (Get-item $depotRoot).Parent.FullName
-            Write-Output ".$razzle $flavor $arch $env:RazzleOptions $extraArgs noprompt"
+            if ($verbose.IsPresent) {
+              Write-Host ".$razzle $flavor $arch $env:RazzleOptions $extraArgs noprompt"
+            }
             $arch = $arch.Replace("x64","amd64")
+
+            $setRazzlePs1 = "$env:_XROOT\src\developer\$env:USERNAME\setrazzle.ps1"
+            Set-Content "" -Path $setRazzlePs1
             .$razzle $flavor $arch $env:RazzleOptions $extraArgs noprompt
           }
 
@@ -438,11 +482,15 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
           if ($null -ne (get-command Get-WindowTitleSuffix*))
           {
             $title = Get-WindowTitleSuffix
-            Write-Host ("Branch:"+$title) -ForegroundColor Yellow
+            if ($verbose.IsPresent) {
+              Write-Host ("Branch:"+$title) -ForegroundColor Yellow
+            }
           }
           return
         }
-        Write-Output $razzle
+        if ($verbose.IsPresent) {
+          Write-Host $razzle
+        }
       }
     }
   }
