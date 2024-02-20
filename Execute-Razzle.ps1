@@ -460,7 +460,7 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
             }
             $arch = $arch.Replace("x64","amd64")
 
-            $setRazzlePs1 = "$env:_XROOT\src\developer\$env:USERNAME\setrazzle.ps1"
+            $setRazzlePs1 = "$env:_XROOT\developer\$env:USERNAME\setrazzle.ps1"
             Set-Content "" -Path $setRazzlePs1
             .$razzle $flavor $arch $env:RazzleOptions $extraArgs noprompt
           }
