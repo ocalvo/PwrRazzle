@@ -19,6 +19,7 @@ param (
   [switch]$noDeep,
   [switch]$nobtok,
   [switch]$gitVersionCheck,
+  [switch]$autoMount,
   $enlistment = $env:SDXROOT)
 
 ##
@@ -26,8 +27,6 @@ param (
 ##
 
 $global:ddIni = ($ddDir+"\dd.ini")
-
-#$env:MSBUILD_VERBOSITY="binlog"
 
 function Check-GSudo
 {
@@ -103,15 +102,6 @@ function global:Execute-OutsideRazzle
 
 Set-Alias UnRazzle Execute-OutsideRazzle -Scope Global;
 
-function Get-Batchfile ($file)
-{
-  $cmd = "echo off & `"$file`" & set"
-  cmd /c $cmd | Foreach-Object {
-    $p, $v = $_.split('=')
-    Set-Item -path env:$p -value $v
-  }
-}
-
 [hashtable]$razzleKind = [ordered]@{
   DevDiv = "\src\tools\razzle.ps1";
   Windows = "\developer\razzle.ps1";
@@ -125,11 +115,7 @@ function Get-RazzleProbeDir($kind, $srcDir)
 
 function Get-RazzleKind($srcDir)
 {
-  $kind = $razzleKind.Keys |
-    where {
-      (test-path (Get-RazzleProbeDir $_ $srcDir))
-    } |
-      select -first 1
+  $kind = $razzleKind.Keys | where { (test-path (Get-RazzleProbeDir $_ $srcDir)) } | Select-Object -First 1
   return $kind
 }
 
@@ -180,7 +166,7 @@ function global:New-RazzleLink($linkName, $binaries)
   if (!(test-path $binaries))
   {
      Write-Verbose "Making new dir $binaries"
-     mkdir $binaries > $null
+     mkdir $binaries | Out-Null
   }
 
   $currentTarget = $null
@@ -204,19 +190,10 @@ function global:Get-BranchCustomId()
     }
 }
 
-function Remove-InvalidFileNameChars
-{
-  param([Parameter(Mandatory=$true,
-      Position=0,
-      ValueFromPipeline=$true,
-      ValueFromPipelineByPropertyName=$true)]
-      [String]$Name
-  )
-  return [RegEx]::Replace($Name, "[{0}]" -f ([RegEx]::Escape([String][System.IO.Path]::GetInvalidFileNameChars())), ' ')
-}
-
 function global:Retarget-Razzle
 {
+    Write-Verbose "Retarget-Razzle"
+
     if ($noSymbolicLinks.IsPresent) {
       return;
     }
@@ -239,6 +216,8 @@ function global:Retarget-Razzle
 
 function global:Retarget-OSRazzle($binariesRoot, $srcRoot = $env:OSBuildRoot)
 {
+    Write-Verbose "Retarget-OSRazzle"
+
     if ($noSymbolicLinks.IsPresent) {
       return;
     }
@@ -272,27 +251,6 @@ function global:Retarget-OSRazzle($binariesRoot, $srcRoot = $env:OSBuildRoot)
 
     New-RazzleLink ($binRoot+"\src") ($srcRoot+"\src")
     New-RazzleLink ($srcRoot+"\TestPayload") ($binRoot+"\TestPayload")
-
-
-    $enlistNumber = $srcRoot.Substring($srcRoot.LastIndexOf("os")+2,1)
-    $workspaceFolder = "F:\os$enlistNumber"
-    $realWorkspaceFile = "$workspaceFolder\os$enlistNumber.code-workspace"
-    if (test-path $realWorkspaceFile)
-    {
-      $title = Get-WindowTitleSuffix
-      $title = $enlistNumber + " " + $title
-      $fileName = Remove-InvalidFileNameChars $title
-      $workSpaceFile = "$workspaceFolder\$fileName.code-workspace"
-      if (!(test-path $workSpaceFile))
-      {
-        #gsudo new-item -ItemType SymbolicLink $workSpaceFile -Target $realWorkspaceFile
-      }
-      $otherLinks = Get-ChildItem $workspaceFolder\*.code-workspace | Where-Object -Property LinkType -eq SymbolicLink | Where-Object -Property BaseName -ne $fileName
-      if ($null -ne $otherLinks)
-      {
-        $otherLinks | ForEach-Object { $item = $_;  Write-Warning ("Deleting "+$item.FullName); $item.Delete() }
-      }
-    }
 
     Write-Verbose ("Retargeting done")
 }
@@ -340,7 +298,7 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
       $depotRoot = $driveEnlistRoot
       Write-Verbose "Probing $depotRoot..."
 
-      if ($depotRoot -like "*\os*\src")
+      if ($depotRoot -like "*\os*\src" -and $autoMount.IsPresent)
       {
         Write-Verbose "gvfs mount $depotRoot..."
         Check-GSudo
@@ -349,18 +307,22 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
       }
 
       $srcDir = $depotRoot;
+      Write-Verbose "Searching for razzle kind in $srcDir"
       $global:kind = Get-RazzleKind $srcDir
       if ($null -ne $kind)
       {
+        Write-Verbose "Found razzle kind: $kind"
         Push-Location $srcDir
         $razzle = (Get-RazzleProbeDir $kind $srcDir)
         if ( test-path $razzle )
         {
+          Write-Verbose "Found razzle script: $razzle"
           if (!($popDir.Path.StartsWith($depotRoot)))
           {
              $podDir = $null
           }
 
+          Write-Verbose "Store $srcDir in $ddIni"
           set-content $ddIni $srcDir
 
           $env:RazzleOptions = ""
@@ -383,9 +345,12 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
             $env:RazzleOptions += " object_dir " + $binaries + "\obj "
             $env:RazzleOptions += " public_dir " + $binaries + "\public "
             $env:RazzleOptions += " output_dir " + $binaries + "\out "
-            $env:RazzleOptions += "  temp " + $tempDir
+            $env:RazzleOptions += " temp " + $tempDir
           }
+
           Retarget-Razzle
+
+          Write-Verbose "Adding razzle commands line arguments"
 
           if ($nobtok.IsPresent)
           {
@@ -404,20 +369,14 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
             $phoneOptions += (" UConfig_Razzle_Parameters=`""+$env:RazzleOptions+"`" ")
           }
 
-          [string]$extraArgs
-          $args |ForEach-Object { $extraArgs += " " + $_ }
-
-          if (test-path ('~\Documents\'+$env:__PSShellDir+'\Razzle\'))
-          {
-            $extraArgs += (" developer_dir ~\Documents\"+$env:__PSShellDir+"\Razzle\ ")
-          }
-
           $env:_XROOT = $srcDir.Trim("\")
 
           if ( $kind -eq "Phone" ) {
-            .$razzle $device ($arch+$flavor) $phoneOptions $extraArgs
+            Write-Verbose "Phone: $razzle $device $arch$flavor $phoneOptions"
+            .$razzle $device ($arch+$flavor) $phoneOptions @args
           }
           elseif ( $kind -eq "Lifted" ) {
+            Write-Verbose "Lifted: $razzle $initParams"
             Retarget-LiftedRazzle
             Push-Location $env:SDXROOT
             Enter-VSShell -vsVersion $vsVersion -vsYear $vsYear
@@ -428,10 +387,12 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
             .$PSScriptRoot\MSBuild-Alias.ps1 -msBuildAlias
           }
           else {
+            Write-Verbose "Windows: $razzle"
             Retarget-OSRazzle $binaries (Get-item $depotRoot).Parent.FullName
             $arch = $arch.Replace("x64","amd64")
 
             $setRazzlePs1Dir = "$env:_XROOT\developer\$env:USERNAME"
+            Write-Verbose "Reseting setrazzle.ps1: $setRazzlePs1Dir"
             mkdir $setRazzlePs1Dir -ErrorAction Ignore | Out-Null
             $setRazzlePs1 = "$setRazzlePs1Dir\setrazzle.ps1"
             Set-Content "" -Path $setRazzlePs1
@@ -441,23 +402,12 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
 
           $global:RazzleEnv = (Get-ChildItem env:*);
 
-          $env:_NT_SYMBOL_PATH+=(';'+$env:_nttree+'\symbols.pri\retail\dll')
-          $env:CG_TEMP = ($env:TEMP+"\CatGates")
-          if (test-path env:LANG)
-          {
-            Remove-Item env:LANG
-          }
           Pop-Location
           if ($null -ne $popDir)
           {
             Set-Location $popDir
           }
 
-          if ($null -ne (get-command Get-WindowTitleSuffix*))
-          {
-            $title = Get-WindowTitleSuffix
-            Write-Verbose ("Branch:"+$title)
-          }
           return
         }
         Write-Verbose $razzle
@@ -469,18 +419,17 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
 
 if (!(test-path "$binariesPrefix\Symbols"))
 {
-   mkdir "$binariesPrefix\Symbols"
+   mkdir "$binariesPrefix\Symbols" | Out-Null
 }
 
 if (!(test-path "$binariesPrefix\SymCache"))
 {
-   mkdir "$binariesPrefix\SymCache"
+   mkdir "$binariesPrefix\SymCache" | Out-Null
 }
 
 if (!(test-path "$binariesPrefix\Temp"))
 {
-   mkdir "$binariesPrefix\Temp"
+   mkdir "$binariesPrefix\Temp" | Out-Null
 }
 
 Execute-Razzle-Internal -flavor $flavor -arch $arch -enlistment $enlistment
-
