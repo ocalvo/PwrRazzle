@@ -20,6 +20,8 @@ param (
   [switch]$nobtok,
   [switch]$gitVersionCheck,
   [switch]$autoMount,
+  [int]$commitLookUp=20,
+  [switch]$fast = $true,
   $enlistment = $env:SDXROOT)
 
 ##
@@ -63,27 +65,6 @@ if (test-path $enlistment)
 
 if ($null -ne $env:_BuildArch) {$arch=$env:_BuildArch;}
 if ($null -ne $env:_BuildType) {$flavor=$env:_BuildType;}
-
-$global:UnRazzleEnv = (Get-ChildItem env:*);
-$global:RazzleEnv = $null;
-
-function global:Undo-Razzle
-{
-  Remove-Item env:*;
-  foreach ($env_entry in $global:UnRazzleEnv)
-  {
-    New-Item -Path env: -Name $env_entry.Name  -Value $env_entry.Value -Force
-  }
-}
-
-function global:Redo-Razzle
-{
-  Remove-Item env:*;
-  foreach ($env_entry in $global:RazzleEnv)
-  {
-    New-Item -Path env: -Name $env_entry.Name  -Value $env_entry.Value -Force
-  }
-}
 
 function global:Execute-OutsideRazzle
 {
@@ -370,37 +351,54 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
           }
 
           $env:_XROOT = $srcDir.Trim("\")
-
-          if ( $kind -eq "Phone" ) {
-            Write-Verbose "Phone: $razzle $device $arch$flavor $phoneOptions"
-            .$razzle $device ($arch+$flavor) $phoneOptions @args
-          }
-          elseif ( $kind -eq "Lifted" ) {
-            Write-Verbose "Lifted: $razzle $initParams"
-            Retarget-LiftedRazzle
-            Push-Location $env:SDXROOT
-            Enter-VSShell -vsVersion $vsVersion -vsYear $vsYear
-            Write-Verbose ".$razzle $arch$flavor"
-            $initParams = (($arch+$flavor),"/2019")
-            $initParams = (($arch+$flavor))
-            Invoke-CmdScript -script $razzle -parameters $initParams
-            .$PSScriptRoot\MSBuild-Alias.ps1 -msBuildAlias
-          }
-          else {
-            Write-Verbose "Windows: $razzle"
-            Retarget-OSRazzle $binaries (Get-item $depotRoot).Parent.FullName
-            $arch = $arch.Replace("x64","amd64")
-
-            $setRazzlePs1Dir = "$env:_XROOT\developer\$env:USERNAME"
-            Write-Verbose "Reseting setrazzle.ps1: $setRazzlePs1Dir"
-            mkdir $setRazzlePs1Dir -ErrorAction Ignore | Out-Null
-            $setRazzlePs1 = "$setRazzlePs1Dir\setrazzle.ps1"
-            Set-Content "" -Path $setRazzlePs1
-            Write-Verbose ".$razzle $flavor $arch $env:RazzleOptions $extraArgs noprompt $args"
-            .$razzle $flavor $arch $env:RazzleOptions $extraArgs noprompt @args
+          $env:_XOSROOT = (get-item "$srcDir\..\").FullName
+          Write-Verbose "Razzle Fast mode: $fast"
+          if ($fast) {
+             $lastCommits = git log -n $commitLookUp --pretty=format:"%H"
+             $lastEnvId = $lastCommits | where { Test-Path "$env:_XOSROOT\$_.env.json" } | Select -First 1
+             $commitId = (git rev-parse HEAD)
+             if (($null -ne $lastEnvId) -and ($lastEnvId -ne $commitId)) {
+                 $commitId = $lastEnvId
+             }
+             $env:EnlistmentEnv = "$env:_XOSROOT\$commitId.env.json"
           }
 
-          $global:RazzleEnv = (Get-ChildItem env:*);
+          if ( (Test-Path $env:EnlistmentEnv) -and $fast.IsPresent) {
+            Write-Verbose "Fast razzle using $env:EnlistmentEnv"
+            Get-Content $env:EnlistmentEnv | ConvertFrom-Json |% { $k=$_.Name; $v=$_.Value; Set-Item -Path env:$k -Value $v }
+          } else {
+            Remove-Item "$env:_XOSROOT\*.env.json"
+            if ( $kind -eq "Phone" ) {
+              Write-Verbose "Phone: $razzle $device $arch$flavor $phoneOptions"
+              .$razzle $device ($arch+$flavor) $phoneOptions @args
+            }
+            elseif ( $kind -eq "Lifted" ) {
+              Write-Verbose "Lifted: $razzle $initParams"
+              Retarget-LiftedRazzle
+              Push-Location $env:SDXROOT
+              Enter-VSShell -vsVersion $vsVersion -vsYear $vsYear
+              Write-Verbose ".$razzle $arch$flavor"
+              $initParams = (($arch+$flavor),"/2019")
+              $initParams = (($arch+$flavor))
+              Invoke-CmdScript -script $razzle -parameters $initParams
+              .$PSScriptRoot\MSBuild-Alias.ps1 -msBuildAlias
+            }
+            else {
+              Write-Verbose "Windows: $razzle"
+              Retarget-OSRazzle $binaries (Get-item $depotRoot).Parent.FullName
+              $arch = $arch.Replace("x64","amd64")
+
+              $setRazzlePs1Dir = "$env:_XROOT\developer\$env:USERNAME"
+              Write-Verbose "Reseting setrazzle.ps1: $setRazzlePs1Dir"
+              mkdir $setRazzlePs1Dir -ErrorAction Ignore | Out-Null
+              $setRazzlePs1 = "$setRazzlePs1Dir\setrazzle.ps1"
+              Set-Content "" -Path $setRazzlePs1
+              Write-Verbose ".$razzle $flavor $arch $env:RazzleOptions $extraArgs noprompt $args"
+              .$razzle $flavor $arch $env:RazzleOptions $extraArgs noprompt @args
+            }
+            $envData = Get-ChildItem env: | Select -Property Name,Value
+            $envData | ConvertTo-Json -Depth 2 | Set-Content $env:EnlistmentEnv
+          }
 
           Pop-Location
           if ($null -ne $popDir)
