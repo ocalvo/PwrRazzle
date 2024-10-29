@@ -360,14 +360,12 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
           $commitId = (git rev-parse HEAD)
           if ($fast) {
              $lastCommits = git log -n $commitLookUp --pretty=format:"%H"
-             $lastEnvId = $lastCommits | where { Test-Path "$env:_XOSROOT\$_.env.json" } | Select -First 1
+             $lastEnvId = $lastCommits | where { Test-Path "$env:_XOSROOT\$_.$arch.$flavor.env.json" } | Select -First 1
              if (($null -ne $lastEnvId) -and ($lastEnvId -ne $commitId)) {
                  $commitId = $lastEnvId
              }
-             $env:EnlistmentEnv = "$env:_XOSROOT\$commitId.env.json"
-          } else {
-            $env:EnlistmentEnv = "$env:_XOSROOT\$commitId.env.json"
           }
+          $env:EnlistmentEnv = "$env:_XOSROOT\$commitId.$arch.$flavor.env.json"
 
           if ( ($null -ne $env:EnlistmentEnv) -and (Test-Path $env:EnlistmentEnv) -and ($fast) ) {
             Write-Verbose "Fast razzle using $env:EnlistmentEnv"
@@ -377,7 +375,7 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
               .$setRazzle
             }
           } else {
-            Remove-Item "$env:_XOSROOT\*.env.json"
+            Remove-Item "$env:_XOSROOT\*.$arch.$flavor.env.json"
             if ( $kind -eq "Phone" ) {
               Write-Verbose "Phone: $razzle $device $arch$flavor $phoneOptions"
               .$razzle $device ($arch+$flavor) $phoneOptions @args
