@@ -22,6 +22,7 @@ param (
   [switch]$autoMount,
   [int]$commitLookUp=20,
   [switch]$fast = $true,
+  [switch]$noprompt = $true,
   $enlistment = $env:SDXROOT)
 
 ##
@@ -47,13 +48,15 @@ if (!($noSymbolicLinks.IsPresent))
 
 if ($null -eq $enlistment)
 {
+  Write-Verbose "Reading last enlistment from $global:ddIni"
   if (test-path $global:ddIni)
   {
-     $enlistment = (Get-Content $global:ddIni)
+    $enlistment = (Get-Content $global:ddIni)
+    Write-Verbose "Found enlistment:'$enlistment'"
   }
   else
   {
-     throw "Enlistment parameter not specified"
+    throw "Enlistment parameter not specified"
   }
 }
 
@@ -353,19 +356,26 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
           $env:_XROOT = $srcDir.Trim("\")
           $env:_XOSROOT = (get-item "$srcDir\..\").FullName
           Write-Verbose "Razzle Fast mode: $fast"
+
+          $commitId = (git rev-parse HEAD)
           if ($fast) {
              $lastCommits = git log -n $commitLookUp --pretty=format:"%H"
              $lastEnvId = $lastCommits | where { Test-Path "$env:_XOSROOT\$_.env.json" } | Select -First 1
-             $commitId = (git rev-parse HEAD)
              if (($null -ne $lastEnvId) -and ($lastEnvId -ne $commitId)) {
                  $commitId = $lastEnvId
              }
              $env:EnlistmentEnv = "$env:_XOSROOT\$commitId.env.json"
+          } else {
+            $env:EnlistmentEnv = "$env:_XOSROOT\$commitId.env.json"
           }
 
-          if ( (Test-Path $env:EnlistmentEnv) -and $fast.IsPresent) {
+          if ( ($null -ne $env:EnlistmentEnv) -and (Test-Path $env:EnlistmentEnv) -and ($fast) ) {
             Write-Verbose "Fast razzle using $env:EnlistmentEnv"
             Get-Content $env:EnlistmentEnv | ConvertFrom-Json |% { $k=$_.Name; $v=$_.Value; Set-Item -Path env:$k -Value $v }
+            $setRazzle = "$srcDir/utilities/psrazzle/setrazzle.ps1"
+            if (Test-Path $setRazzle) {
+              .$setRazzle
+            }
           } else {
             Remove-Item "$env:_XOSROOT\*.env.json"
             if ( $kind -eq "Phone" ) {
@@ -393,11 +403,15 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
               mkdir $setRazzlePs1Dir -ErrorAction Ignore | Out-Null
               $setRazzlePs1 = "$setRazzlePs1Dir\setrazzle.ps1"
               Set-Content "" -Path $setRazzlePs1
-              Write-Verbose ".$razzle $flavor $arch $env:RazzleOptions $extraArgs noprompt $args"
-              .$razzle $flavor $arch $env:RazzleOptions $extraArgs noprompt @args
+              if ($noPrompt) {
+                $args += "noprompt"
+              }
+              Write-Verbose ".$razzle $flavor $arch $env:RazzleOptions $args"
+              .$razzle $flavor $arch $env:RazzleOptions @args
             }
             $envData = Get-ChildItem env: | Select -Property Name,Value
             $envData | ConvertTo-Json -Depth 2 | Set-Content $env:EnlistmentEnv
+            Write-Verbose "Stored razzle environment in '$env:EnlistmentEnv'"
           }
 
           Pop-Location
