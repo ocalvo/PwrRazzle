@@ -51,8 +51,19 @@ if ($null -eq $enlistment)
   Write-Verbose "Reading last enlistment from $global:ddIni"
   if (test-path $global:ddIni)
   {
-    $enlistment = (Get-Content $global:ddIni)
+    $ddIniData = (Get-Content $global:ddIni)
+    $enlistment = $ddIniData | Select -First 1
     Write-Verbose "Found enlistment:'$enlistment'"
+    $data = $ddIniData | Select -Skip 1 -First 1
+    if ($null -ne $data) {
+      Write-Verbose "Override arch to $data from ddIni"
+      $arch = $data
+    }
+    $data = $ddIniData | Select -Skip 2 -First 1
+    if ($null -ne $data) {
+      Write-Verbose "Override flavor to $data from ddIni"
+      $flavor = $data
+    }
   }
   else
   {
@@ -306,8 +317,10 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
              $podDir = $null
           }
 
-          Write-Verbose "Store $srcDir in $ddIni"
-          set-content $ddIni $srcDir
+          Write-Verbose "Store $srcDir,$arch,$flavor in $ddIni"
+          Set-Content $ddIni $srcDir
+          Add-Content $ddIni $arch
+          Add-Content $ddIni $flavor
 
           $env:RazzleOptions = ""
           if (!($opt.IsPresent))
