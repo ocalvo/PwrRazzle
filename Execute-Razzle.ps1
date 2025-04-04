@@ -150,10 +150,14 @@ function Invoke-FastRazzle {
   param()
   Write-Verbose "Fast razzle using $env:EnlistmentEnv"
   if (Test-path $env:EnlistmentEnv) {
-    Get-Content $env:EnlistmentEnv | ConvertFrom-Json |% { $k=$_.Name; $v=$_.Value; Set-Item -Path env:$k -Value $v }
+    Write-Verbose "Fast razzle found a valid $env:EnlistmentEnv"
+    Get-Content $env:EnlistmentEnv | ConvertFrom-Json | ForEach-Object { $k=$_.Name; $v=$_.Value; Set-Item -Path env:$k -Value $v }
     $setRazzle = "$srcDir/utilities/psrazzle/setrazzle.ps1"
+    Write-Verbose "Checking for setRazzle: $setRazzle"
     if (Test-Path $setRazzle) {
+      Write-Verbose "Running setRazzle: $setRazzle"
       .$setRazzle
+      Write-Verbose "SetRazzle complete: $setRazzle"
     }
   }
 }
@@ -268,8 +272,6 @@ function Invoke-Razzle-Internal {
     gvfs upgrade
   }
 
-  $popDir = Get-Location
-
   $razzleProbe = (Get-RazzleProbes)
   $binaries = $binariesPrefix
 
@@ -300,11 +302,6 @@ function Invoke-Razzle-Internal {
         if ( test-path $razzle )
         {
           Write-Verbose "Found razzle script: $razzle"
-          if (!($popDir.Path.StartsWith($depotRoot)))
-          {
-             $podDir = $null
-          }
-
           Write-Verbose "Store $srcDir,$arch,$flavor in $ddIni"
           Set-Content $ddIni $srcDir
           Add-Content $ddIni $arch
@@ -356,24 +353,22 @@ function Invoke-Razzle-Internal {
 
           $perlCmd = "$env:_XOSROOT\tools\perl\bin\perl.exe"
           $perlExists = (Test-Path $perlCmd)
+          Write-Verbose "PushD:$env:_XOSROOT\src"
           Push-Location "$env:_XOSROOT\src"
           if ($Async) {
             Invoke-RazzleAsync
           } elseif ( ($null -ne $env:EnlistmentEnv) -and (Test-Path $env:EnlistmentEnv) -and ($fast) -and ($perlExists)) {
             Invoke-FastRazzle
           } else {
+            Write-Verbose "$PSScriptRoot\Execute-RealRazzle.ps1"
             ."$PSScriptRoot\Execute-RealRazzle.ps1" -razzle:$razzle -arch $arch -flavor $flavor -binaries $binaries -depotRoot $depotRoot -noPrompt:($noPrompt.IsPresent) -noSymbolicLinks:($noSymbolicLinks.IsPresent) @args
           }
 
+          Write-Verbose "PopD:$env:_XOSROOT\src"
           Pop-Location
-          if ($null -ne $popDir)
-          {
-            Set-Location $popDir
-          }
 
           return
         }
-        Write-Verbose $razzle
       }
     }
   }

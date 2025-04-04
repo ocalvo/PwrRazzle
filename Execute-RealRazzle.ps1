@@ -119,7 +119,7 @@ if ($noPrompt) {
 Write-Verbose ".$razzle $flavor $arch $env:RazzleOptions $args"
 .$razzle $flavor $arch $env:RazzleOptions @args
 
-$envData = Get-ChildItem env: | Select -Property Name,Value
+$envData = Get-ChildItem env: | Select-Object -Property Name,Value
 $envData | ConvertTo-Json -Depth 2 | Set-Content $env:EnlistmentEnv
 Write-Verbose "Stored razzle environment in '$env:EnlistmentEnv'"
 
