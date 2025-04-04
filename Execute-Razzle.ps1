@@ -174,7 +174,7 @@ function global:Set-ConsoleScrollRegion {
   return $scrollRegionStart
 }
 
-$global:currentPos = 2;
+$global:currentPos = 0;
 $global:currentProgress = 0;
 
 function global:Receive-RazzleJob {
@@ -194,16 +194,17 @@ function global:Receive-RazzleJob {
   $posY = $scrollRegionStart+1
   $moveCursor = "${esc}[${posY};${posX}H"  # Move cursor to the start of the scroll region
   Write-Host "${saveCursor}${moveCursor}${clearLine}-[${progress}]---Razzle---${restoreCursor}" -NoNewline
+  $posY += 1
 
   $lines = Receive-Job $razzleJob
   $lines | ForEach-Object {
-    $posY = $scrollRegionStart+$currentPos
+    $posY = $posY+$global:currentPos
     $moveCursor = "${esc}[${posY};${posX}H"  # Move cursor to the start of the scroll region
     $line = $_
     Write-Host "${saveCursor}${moveCursor}${clearLine}${line}${restoreCursor}" -NoNewline
-    $currenPos++
-    if ($currenPos -gt $height) {
-      $currenPos = 2
+    $global:currentPos++
+    if ($global:currentPos -ge $height) {
+      $global:currentPos = 0
     }
   }
 }
@@ -224,6 +225,7 @@ function Invoke-RazzleAsync {
       $noPrompt,
       $noSymbolicLinks,
       $args)
+    [System.Threading.Thread]::CurrentThread.Priority = [System.Threading.ThreadPriority]::High
     .".\Execute-RealRazzle.ps1" -razzle $razzle -arch $arch -flavor $flavor -binaries $binaries -depotRoot $depotRoot -noPrompt:$noPrompt -noSymbolicLinks:$noSymbolicLinks @args
   } -ArgumentList ($razzle, $arch, $flavor, $binaries, $depotRoot, ($noPrompt.IsPresent), $true, $args)
   Write-Verbose "Razzle job started: $RazzleJob"
@@ -244,6 +246,9 @@ function Invoke-RazzleAsync {
       $timer.Stop()
       Unregister-Event -SourceIdentifier $timer
       $timer.Dispose()
+      $esc = [char]27
+      $resetScrollRegion = "${esc}[r"
+      Write-Host -NoNewline $resetScrollRegion
     }
   }
   Register-ObjectEvent -InputObject $timer -EventName Elapsed -Action $action -MessageData ($RazzleJob, $scrollRegionStart, $VerbosePreference, $timer) | Out-Null

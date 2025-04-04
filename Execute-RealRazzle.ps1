@@ -102,7 +102,7 @@ function Retarget-Razzle
 
 Write-Verbose "Execute-RealRazzle"
 
-Remove-Item "$env:_XOSROOT\*.$arch.$flavor.env.json"
+Remove-Item "$env:_XOSROOT\*.$arch.$flavor.env.json" -Exclude $env:EnlistmentEnv
 
 Retarget-Razzle
 Retarget-OSRazzle $binaries (Get-item $depotRoot).Parent.FullName
