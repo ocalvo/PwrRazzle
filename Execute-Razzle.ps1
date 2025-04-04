@@ -145,11 +145,7 @@ function global:Get-BranchCustomId()
     }
 }
 
-function Invoke-RazzleAsync {
-
-}
-
-function Execute-FastRazzle {
+function Invoke-FastRazzle {
   Write-Verbose "Fast razzle using $env:EnlistmentEnv"
   if (Test-path $env:EnlistmentEnv) {
     Get-Content $env:EnlistmentEnv | ConvertFrom-Json |% { $k=$_.Name; $v=$_.Value; Set-Item -Path env:$k -Value $v }
@@ -160,7 +156,52 @@ function Execute-FastRazzle {
   }
 }
 
-function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
+function global:Receive-RazzleJob {
+  [CmdletBinding()]
+  param($razzleJob)
+  Write-Verbose "Receive-RazzleJob"
+  Receive-Job $razzleJob | Write-Host
+}
+
+function Invoke-RazzleAsync {
+  Write-Verbose "Invoke-RazzleAsync"
+  Invoke-FastRazzle
+  Set-Location $PSScriptRoot
+  $global:RazzleJob = Start-ThreadJob -ScriptBlock {
+    param(
+      $razzle,
+      $arch,
+      $flavor,
+      $binaries,
+      $depotRoot,
+      $noPrompt,
+      $noSymbolicLinks,
+      $args)
+    .".\Execute-RealRazzle.ps1" -razzle $razzle -arch $arch -flavor $flavor -binaries $binaries -depotRoot $depotRoot -noPrompt:$noPrompt -noSymbolicLinks:$noSymbolicLinks @args
+  } -ArgumentList ($razzle, $arch, $flavor, $binaries, $depotRoot, ($noPrompt.IsPresent), $true, $args)
+  Write-Verbose "Razzle job started: $RazzleJob"
+  $global:timer = New-Object System.Timers.Timer
+  $timer.Interval = 100
+  $action = {
+    param()
+    Write-Verbose "Invoke-RazzleAsync: Timer tick"
+    $_razzleJob = $Event.MessageData
+    if ($_razzleJob.State -ne "Completed") {
+      Write-Verbose "Invoke-RazzleAsync: Receive-Job"
+      Receive-RazzleJob -razzleJob $_razzleJob
+    } else {
+      Write-Verbose "Invoke-RazzleAsync: Stopping timer"
+      $timer.Stop()
+      Unregister-Event -SourceIdentifier $timer
+      $timer.Dispose()
+    }
+  }
+  Register-ObjectEvent -InputObject $timer -EventName Elapsed -Action $action -MessageData $RazzleJob | Out-Null
+  $timer.Enabled = $true
+  $timer.Start()
+}
+
+function Invoke-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
 {
   if ( ($gitVersionCheck.IsPresent) )
   {
@@ -258,22 +299,9 @@ function Execute-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
           $perlExists = (Test-Path $perlCmd)
           Push-Location "$env:_XOSROOT\src"
           if ($Async) {
-            Execute-FastRazzle
-            Set-Location $PSScriptRoot
-            $global:RazzleJob = Start-ThreadJob -ScriptBlock {
-              param(
-                $razzle,
-                $arch,
-                $flavor,
-                $binaries,
-                $depotRoot,
-                $noPrompt,
-                $noSymbolicLinks,
-                $args)
-              .".\Execute-RealRazzle.ps1" -razzle $razzle -arch $arch -flavor $flavor -binaries $binaries -depotRoot $depotRoot -noPrompt:$noPrompt -noSymbolicLinks:$noSymbolicLinks @args
-            } -ArgumentList ($razzle, $arch, $flavor, $binaries, $depotRoot, ($noPrompt.IsPresent), $true, $args)
+            Invoke-RazzleAsync
           } elseif ( ($null -ne $env:EnlistmentEnv) -and (Test-Path $env:EnlistmentEnv) -and ($fast) -and ($perlExists)) {
-            Execute-FastRazzle
+            Invoke-FastRazzle
           } else {
             ."$PSScriptRoot\Execute-RealRazzle.ps1" -razzle:$razzle -arch $arch -flavor $flavor -binaries $binaries -depotRoot $depotRoot -noPrompt:($noPrompt.IsPresent) -noSymbolicLinks:($noSymbolicLinks.IsPresent) @args
           }
@@ -308,4 +336,4 @@ if (!(test-path "$binariesPrefix\Temp"))
    mkdir "$binariesPrefix\Temp" | Out-Null
 }
 
-Execute-Razzle-Internal -flavor $flavor -arch $arch -enlistment $enlistment
+Invoke-Razzle-Internal -flavor $flavor -arch $arch -enlistment $enlistment
