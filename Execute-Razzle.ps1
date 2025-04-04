@@ -146,6 +146,8 @@ function global:Get-BranchCustomId()
 }
 
 function Invoke-FastRazzle {
+  [CmdletBinding()]
+  param()
   Write-Verbose "Fast razzle using $env:EnlistmentEnv"
   if (Test-path $env:EnlistmentEnv) {
     Get-Content $env:EnlistmentEnv | ConvertFrom-Json |% { $k=$_.Name; $v=$_.Value; Set-Item -Path env:$k -Value $v }
@@ -156,14 +158,59 @@ function Invoke-FastRazzle {
   }
 }
 
+function global:Set-ConsoleScrollRegion {
+  param($height = 5)
+
+  $esc = [char]27
+  $saveCursor = "${esc}[s"
+  $restoreCursor = "${esc}[u"
+  $consoleHeight = $host.UI.RawUI.WindowSize.Height
+  # Calculate the start of the scroll region (5 rows from the bottom)
+  $scrollRegionStart = $consoleHeight - $height + 1
+  # Set the scroll region using the calculated values
+  $scrollRegion = "${esc}[0;${scrollRegionStart}r"
+  $cmd = "${saveCursor}${scrollRegion}${restoreCursor}"
+  Write-Host $cmd -NoNewline
+  return $scrollRegionStart
+}
+
+$global:currentPos = 2;
+$global:currentProgress = 0;
+
 function global:Receive-RazzleJob {
   [CmdletBinding()]
-  param($razzleJob)
+  param($razzleJob, $scrollRegionStart, $height = 5)
   Write-Verbose "Receive-RazzleJob"
-  Receive-Job $razzleJob | Write-Host
+  $esc = [char]27
+  $saveCursor = "${esc}[s"
+  $restoreCursor = "${esc}[u"
+  $clearLine = "${esc}[K"
+  $posX = 1
+  $progressStr = "⣀⣤⣶⣿⣶⣤"
+  if ($global:currentProgress -eq $progressStr.Length) {
+    $global:currentProgress = 0;
+  }
+  $progress = $progressStr[$global:currentProgress++]
+  $posY = $scrollRegionStart+1
+  $moveCursor = "${esc}[${posY};${posX}H"  # Move cursor to the start of the scroll region
+  Write-Host "${saveCursor}${moveCursor}${clearLine}-[${progress}]---Razzle---${restoreCursor}" -NoNewline
+
+  $lines = Receive-Job $razzleJob
+  $lines | ForEach-Object {
+    $posY = $scrollRegionStart+$currentPos
+    $moveCursor = "${esc}[${posY};${posX}H"  # Move cursor to the start of the scroll region
+    $line = $_
+    Write-Host "${saveCursor}${moveCursor}${clearLine}${line}${restoreCursor}" -NoNewline
+    $currenPos++
+    if ($currenPos -gt $height) {
+      $currenPos = 2
+    }
+  }
 }
 
 function Invoke-RazzleAsync {
+  [CmdletBinding()]
+  param ()
   Write-Verbose "Invoke-RazzleAsync"
   Invoke-FastRazzle
   Set-Location $PSScriptRoot
@@ -180,29 +227,36 @@ function Invoke-RazzleAsync {
     .".\Execute-RealRazzle.ps1" -razzle $razzle -arch $arch -flavor $flavor -binaries $binaries -depotRoot $depotRoot -noPrompt:$noPrompt -noSymbolicLinks:$noSymbolicLinks @args
   } -ArgumentList ($razzle, $arch, $flavor, $binaries, $depotRoot, ($noPrompt.IsPresent), $true, $args)
   Write-Verbose "Razzle job started: $RazzleJob"
+  $scrollRegionStart = Set-ConsoleScrollRegion
   $global:timer = New-Object System.Timers.Timer
-  $timer.Interval = 100
+  $timer.Interval = 500
   $action = {
+    [CmdletBinding()]
     param()
-    Write-Verbose "Invoke-RazzleAsync: Timer tick"
-    $_razzleJob = $Event.MessageData
+    $_razzleJob = $Event.MessageData[0]
+    $scrollRegionStart = $Event.MessageData[1]
+    $VerbosePreference = $Event.MessageData[2]
     if ($_razzleJob.State -ne "Completed") {
-      Write-Verbose "Invoke-RazzleAsync: Receive-Job"
-      Receive-RazzleJob -razzleJob $_razzleJob
+      Receive-RazzleJob -razzleJob $_razzleJob -scrollRegionStart $scrollRegionStart 
     } else {
+      $timer = $Event.MessageData[3]
       Write-Verbose "Invoke-RazzleAsync: Stopping timer"
       $timer.Stop()
       Unregister-Event -SourceIdentifier $timer
       $timer.Dispose()
     }
   }
-  Register-ObjectEvent -InputObject $timer -EventName Elapsed -Action $action -MessageData $RazzleJob | Out-Null
+  Register-ObjectEvent -InputObject $timer -EventName Elapsed -Action $action -MessageData ($RazzleJob, $scrollRegionStart, $VerbosePreference, $timer) | Out-Null
   $timer.Enabled = $true
   $timer.Start()
 }
 
-function Invoke-Razzle-Internal($flavor="chk",$arch="x86",$enlistment)
-{
+function Invoke-Razzle-Internal {
+  [CmdletBinding()]
+  param(
+    $flavor="chk",$arch="x86",$enlistment
+  )
+
   if ( ($gitVersionCheck.IsPresent) )
   {
     Write-Verbose "Checking git version..."
